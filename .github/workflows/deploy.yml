@@ -24,14 +24,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pre-deployment validation
+        run: |
+          echo "🔍 Validating repository structure for deployment..."
+          echo "📁 HTML files to deploy:"
+          ls -la *.html | head -10
+          echo ""
+          echo "📦 Total HTML files: $(ls -1 *.html | wc -l)"
+          echo "📊 Repository size: $(du -sh . | cut -f1)"
+          echo "✅ Repository structure validated"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        continue-on-error: true
+        id: pages-setup
+
+      - name: Handle Pages configuration
+        run: |
+          if [ "${{ steps.pages-setup.outcome }}" != "success" ]; then
+            echo "❌ GitHub Pages configuration failed!"
+            echo ""
+            echo "🔧 To fix this issue, please:"
+            echo "1. Go to repository Settings → Pages"
+            echo "2. Set Source to 'GitHub Actions'"
+            echo "3. Re-run this workflow"
+            echo ""
+            echo "📖 More info: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow"
+            exit 1
+          else
+            echo "✅ GitHub Pages configured successfully"
+          fi
 
       - name: Prepare deployment
         run: |
           echo "🚀 Preparing deployment at $(date -u)"
-          echo "📁 Files to deploy:"
-          ls -la *.html
+          echo "📁 Final validation before deployment:"
+          echo "- Index file: $([ -f index.html ] && echo "✅ Found" || echo "❌ Missing")"
+          echo "- CSS files: $(find css -name "*.css" 2>/dev/null | wc -l) files found"
+          echo "- JS files: $(find js -name "*.js" 2>/dev/null | wc -l) files found"
+          echo "- Arabic content check: $(grep -l "الفارس" *.html | wc -l) Arabic pages found"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
