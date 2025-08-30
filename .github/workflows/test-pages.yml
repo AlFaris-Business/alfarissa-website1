@@ -1,0 +1,112 @@
+name: Test GitHub Pages Configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: 'Only check configuration (no deployment)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test-pages-config:
+    runs-on: ubuntu-latest
+    outputs:
+      pages-enabled: ${{ steps.check-pages.outputs.enabled }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Pages Configuration
+        id: check-pages
+        run: |
+          echo "🔍 Testing GitHub Pages configuration..."
+          echo "📋 Repository: ${{ github.repository }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📅 Date: $(date -u)"
+          echo ""
+
+      - name: Setup Pages (Test)
+        uses: actions/configure-pages@v4
+        continue-on-error: true
+        id: pages-test
+
+      - name: Report Configuration Status
+        run: |
+          if [ "${{ steps.pages-test.outcome }}" == "success" ]; then
+            echo "✅ GitHub Pages is properly configured!"
+            echo "🚀 Ready for deployment"
+            echo "🌐 Site will be available at: ${{ steps.pages-test.outputs.page_url || 'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}' }}"
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ GitHub Pages configuration issue detected"
+            echo ""
+            echo "🔧 To enable GitHub Pages:"
+            echo "1. Go to repository Settings → Pages"
+            echo "2. Under 'Source', select 'GitHub Actions'"
+            echo "3. Save the settings"
+            echo "4. Re-run this workflow to verify"
+            echo ""
+            echo "📖 Documentation: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site"
+            echo "enabled=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Website Content
+        run: |
+          echo "📝 Validating Arabic website content..."
+          echo "📄 HTML files: $(ls -1 *.html | wc -l)"
+          echo "🎨 CSS files: $(find css -name "*.css" 2>/dev/null | wc -l)"
+          echo "⚡ JS files: $(find js -name "*.js" 2>/dev/null | wc -l)"
+          echo ""
+          
+          # Check main page
+          if [ -f "index.html" ]; then
+            echo "✅ Main page (index.html) found"
+            if grep -q "الفارس للأعمال" index.html; then
+              echo "✅ Arabic content detected"
+            else
+              echo "⚠️  Arabic content not detected in main page"
+            fi
+            if grep -q "dir=\"rtl\"" index.html; then
+              echo "✅ RTL layout configured"
+            else
+              echo "⚠️  RTL layout not detected"
+            fi
+          else
+            echo "❌ Main page (index.html) missing"
+          fi
+
+  deploy-if-enabled:
+    needs: test-pages-config
+    if: ${{ needs.test-pages-config.outputs.pages-enabled == 'true' && !inputs.check_only }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Deployment Success
+        run: |
+          echo "🎉 Deployment successful!"
+          echo "🌐 Website URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "📅 Deployed at: $(date -u)"
